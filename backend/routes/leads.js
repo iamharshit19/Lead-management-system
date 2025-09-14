@@ -1,112 +1,182 @@
 const express = require("express");
 const Lead = require("../models/Lead");
+const auth = require("../middleware/auth");
+
 const router = express.Router();
 
-// GET /api/leads
-router.get("/", async (req, res) => {
+// POST / (Create Lead) - Unchanged
+router.post("/", auth, async (req, res) => {
   try {
-    let {
-      page = 1,
-      limit = 20,
-      email,
-      company,
-      city,
-      status,
-      source,
-      score_eq,
-      score_gt,
-      score_lt,
-      score_between,
-      lead_value_eq,
-      lead_value_gt,
-      lead_value_lt,
-      lead_value_between,
-      created_on,
-      created_before,
-      created_after,
-      created_between,
-      last_on,
-      last_before,
-      last_after,
-      last_between,
-      is_qualified
-    } = req.query;
-
-    page = parseInt(page);
-    limit = Math.min(parseInt(limit), 100); // cap at 100
-
-    const filter = {};
-
-    // === STRING FIELDS ===
-    if (email) filter.email = { $regex: email, $options: "i" };
-    if (company) filter.company = { $regex: company, $options: "i" };
-    if (city) filter.city = { $regex: city, $options: "i" };
-
-    // === ENUMS ===
-    if (status) filter.status = status;
-    if (source) {
-      // Allow multiple comma-separated
-      filter.source = { $in: source.split(",") };
-    }
-
-    // === NUMBERS ===
-    if (score_eq) filter.score = Number(score_eq);
-    if (score_gt) filter.score = { ...(filter.score || {}), $gt: Number(score_gt) };
-    if (score_lt) filter.score = { ...(filter.score || {}), $lt: Number(score_lt) };
-    if (score_between) {
-      const [min, max] = score_between.split(",").map(Number);
-      filter.score = { $gte: min, $lte: max };
-    }
-
-    if (lead_value_eq) filter.lead_value = Number(lead_value_eq);
-    if (lead_value_gt) filter.lead_value = { ...(filter.lead_value || {}), $gt: Number(lead_value_gt) };
-    if (lead_value_lt) filter.lead_value = { ...(filter.lead_value || {}), $lt: Number(lead_value_lt) };
-    if (lead_value_between) {
-      const [min, max] = lead_value_between.split(",").map(Number);
-      filter.lead_value = { $gte: min, $lte: max };
-    }
-
-    // === DATES ===
-    if (created_on) filter.created_at = new Date(created_on);
-    if (created_before) filter.created_at = { ...(filter.created_at || {}), $lt: new Date(created_before) };
-    if (created_after) filter.created_at = { ...(filter.created_at || {}), $gt: new Date(created_after) };
-    if (created_between) {
-      const [start, end] = created_between.split(",").map(d => new Date(d));
-      filter.created_at = { $gte: start, $lte: end };
-    }
-
-    if (last_on) filter.last_activity_at = new Date(last_on);
-    if (last_before) filter.last_activity_at = { ...(filter.last_activity_at || {}), $lt: new Date(last_before) };
-    if (last_after) filter.last_activity_at = { ...(filter.last_activity_at || {}), $gt: new Date(last_after) };
-    if (last_between) {
-      const [start, end] = last_between.split(",").map(d => new Date(d));
-      filter.last_activity_at = { $gte: start, $lte: end };
-    }
-
-    // === BOOLEAN ===
-    if (is_qualified !== undefined) {
-      filter.is_qualified = is_qualified === "true";
-    }
-
-    // === QUERY DB ===
-    const total = await Lead.countDocuments(filter);
-    const leads = await Lead.find(filter)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .sort({ created_at: -1 });
-
-    res.json({
-      data: leads,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
+    const lead = new Lead({
+      ...req.body,
+      createdBy: req.user.id,
     });
-
+    await lead.save();
+    res.status(201).json(lead);
   } catch (err) {
-    console.error(err);
+    console.error(err.message);
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// ✅ GET / (Get All Leads with Pagination and Filtering) - UPDATED
+router.get("/", auth, async (req, res) => {
+  try {
+    // --- 1. PAGINATION SETUP ---
+    const page = parseInt(req.query.page, 10) || 1;
+    let limit = parseInt(req.query.limit, 10) || 20;
+    if (limit > 100) limit = 100; // Enforce max limit
+
+    const skip = (page - 1) * limit;
+
+    // --- 2. FILTERING LOGIC ---
+    const filterQuery = { createdBy: req.user.id }; // Base query
+    
+    // Whitelist of fields that can be filtered
+    const filterableFields = {
+      // String fields
+      name: 'string', email: 'string', company: 'string', city: 'string',
+      // Enum fields
+      status: 'enum', source: 'enum',
+      // Number fields
+      score: 'number', lead_value: 'number',
+      // Date fields
+      createdAt: 'date', last_activity_at: 'date',
+      // Boolean field
+      is_qualified: 'boolean'
+    };
+
+    for (const field in req.query) {
+      if (filterableFields[field]) {
+        const queryPart = req.query[field]; // e.g., { "gt": "50" } or "new"
+        
+        // Handle simple 'equals' for strings, enums
+        if (typeof queryPart === 'string') {
+          filterQuery[field] = queryPart;
+          continue;
+        }
+
+        const [operator, value] = Object.entries(queryPart)[0];
+        const fieldType = filterableFields[field];
+
+        switch (operator) {
+          // String operators
+          case 'contains':
+            if (fieldType === 'string') {
+              filterQuery[field] = { $regex: value, $options: "i" };
+            }
+            break;
+          // Enum operators
+          case 'in':
+            if (fieldType === 'enum') {
+              filterQuery[field] = { $in: value.split(',') };
+            }
+            break;
+          // Number operators
+          case 'gt':
+          case 'lt':
+            if (fieldType === 'number') {
+              filterQuery[field] = { [`$${operator}`]: Number(value) };
+            }
+            break;
+          case 'between':
+            if (fieldType === 'number' || fieldType === 'date') {
+              const [start, end] = value.split(',');
+              filterQuery[field] = {
+                $gte: fieldType === 'number' ? Number(start) : new Date(start),
+                $lte: fieldType === 'number' ? Number(end) : new Date(end)
+              };
+            }
+            break;
+          // Date operators
+          case 'on':
+             if (fieldType === 'date') {
+                const dayStart = new Date(value);
+                dayStart.setHours(0, 0, 0, 0);
+                const dayEnd = new Date(value);
+                dayEnd.setHours(23, 59, 59, 999);
+                filterQuery[field] = { $gte: dayStart, $lte: dayEnd };
+            }
+            break;
+          case 'before':
+            if (fieldType === 'date') filterQuery[field] = { $lt: new Date(value) };
+            break;
+          case 'after':
+            if (fieldType === 'date') filterQuery[field] = { $gt: new Date(value) };
+            break;
+          // Boolean operators (only 'equals' is relevant)
+          case 'equals':
+             if (fieldType === 'boolean') {
+                filterQuery[field] = value === 'true';
+             } else if (fieldType === 'number') {
+                filterQuery[field] = Number(value);
+             } else {
+                filterQuery[field] = value;
+             }
+             break;
+        }
+      }
+    }
+
+    // --- 3. DATABASE QUERY ---
+    const total = await Lead.countDocuments(filterQuery);
+    const leads = await Lead.find(filterQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // --- 4. RESPONSE ---
+    res.json({
+      data: leads,
+      page: page,
+      limit: limit,
+      total: total,
+      totalPages: Math.ceil(total / limit) || 1, // Ensure totalPages is at least 1
+    });
+
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+// GET /:id (Get Lead by ID) - Unchanged
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const lead = await Lead.findOne({ _id: req.params.id, createdBy: req.user.id });
+    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    res.json(lead);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PUT /:id (Update Lead) - Unchanged
+router.put("/:id", auth, async (req, res) => {
+  try {
+    const lead = await Lead.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user.id },
+      req.body,
+      { new: true }
+    );
+    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    res.json(lead);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /:id (Delete Lead) - Unchanged
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const lead = await Lead.findOneAndDelete({ _id: req.params.id, createdBy: req.user.id });
+    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    res.json({ message: "Lead deleted" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 module.exports = router;

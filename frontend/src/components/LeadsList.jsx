@@ -12,7 +12,7 @@ export default function LeadsList() {
     setLoading(true);
     try {
       const res = await api.get(`/leads?page=${pageNum}&limit=10`);
-      setLeads(res.data.leads);
+      setLeads(res.data.data);
       setPage(res.data.page);
       setTotalPages(res.data.totalPages);
     } catch (error) {
