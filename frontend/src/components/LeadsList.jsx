@@ -1,94 +1,161 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../api";
-import LeadForm from "./LeadForm";
 
-export default function LeadsList() {
-  const [leads, setLeads] =useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+export default function LeadForm({
+  onLeadAdded,
+  leadToEdit,
+  onLeadUpdated,
+  onCancelEdit,
+}) {
+  const initialFormData = {
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    status: "new",
+    source: "website", 
+  };
 
-  const fetchLeads = async (pageNum = 1) => {
+  const [formData, setFormData] = useState(initialFormData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const isEditMode = Boolean(leadToEdit);
+
+  
+  useEffect(() => {
+    if (isEditMode) {
+      setFormData({
+        first_name: leadToEdit.first_name || "",
+        last_name: leadToEdit.last_name || "",
+        email: leadToEdit.email || "",
+        phone: leadToEdit.phone || "",
+        status: leadToEdit.status || "new",
+        source: leadToEdit.source || "website",
+      });
+    } else {
+      
+      setFormData(initialFormData);
+    }
+  }, [leadToEdit]);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
+    setError("");
+
     try {
-      const res = await api.get(`/leads?page=${pageNum}&limit=10`);
-      setLeads(res.data.data);
-      setPage(res.data.page);
-      setTotalPages(res.data.totalPages);
-    } catch (error) {
-      console.error("Failed to fetch leads:", error);
+      if (isEditMode) {
+        
+        const res = await api.put(`/leads/${leadToEdit._id}`, formData);
+        if (onLeadUpdated) onLeadUpdated(res.data);
+      } else {
+        
+        const res = await api.post("/leads", formData);
+        if (onLeadAdded) onLeadAdded(res.data);
+        setFormData(initialFormData); 
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'add'} lead.`);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchLeads(1);
-  }, []);
-
-  const handleLeadAdded = (newLead) => {
-   
-    fetchLeads(page);
-  };
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-1">
-        <LeadForm onLeadAdded={handleLeadAdded} />
+    <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-white rounded-xl shadow-lg sticky top-6">
+      <h2 className="text-2xl font-bold text-gray-800">
+        {isEditMode ? "Edit Lead" : "Add New Lead"}
+      </h2>
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</p>
+      )}
+
+      
+      <div>
+        <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+        <input
+          type="text" id="first_name" name="first_name" value={formData.first_name}
+          onChange={handleChange} placeholder="John"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required
+        />
+      </div>
+       <div>
+        <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+        <input
+          type="text" id="last_name" name="last_name" value={formData.last_name}
+          onChange={handleChange} placeholder="Doe"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" required
+        />
+      </div>
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input
+          type="email" id="email" name="email" value={formData.email}
+          onChange={handleChange} placeholder="name@example.com"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <div>
+        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+        <input
+          type="text" id="phone" name="phone" value={formData.phone}
+          onChange={handleChange} placeholder="Phone No."
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <div>
+        <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+        <select
+          id="status" name="status" value={formData.status} onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="lost">Lost</option>
+          <option value="won">Won</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+        <select
+          id="source" name="source" value={formData.source} onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="website">Website</option>
+          <option value="google_ads">Google Ads</option>
+          <option value="facebook_ads">Facebook Ads</option>
+          <option value="events">Events</option>
+          <option value="referral">Referral</option>
+          <option value="other">Other</option>
+        </select>
       </div>
 
-      <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Leads</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-gray-600">
-            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3">Name</th>
-                <th scope="col" className="px-6 py-3">Email</th>
-                <th scope="col" className="px-6 py-3">Status</th>
-                <th scope="col" className="px-6 py-3">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan="4" className="text-center p-4">Loading leads...</td></tr>
-              ) : leads.length > 0 ? (
-                leads.map((lead) => (
-                  <tr key={lead._id} className="bg-white border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap"> {`${lead.first_name || ""} ${lead.last_name || ""}`.trim() || "N/A"}</td>
-                    <td className="px-6 py-4">{lead.email}</td>
-                    <td className="px-6 py-4">{lead.status}</td>
-                    <td className="px-6 py-4">{lead.source || 'N/A'}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan="4" className="text-center p-4">No leads found.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        
-        <div className="flex items-center justify-between mt-6">
+      <div className="flex space-x-2">
+        <button
+          type="submit"
+          className="w-full bg-indigo-600 text-white px-4 py-2 font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          disabled={loading}
+        >
+          {loading ? "Saving..." : (isEditMode ? "Update Lead" : "Add Lead")}
+        </button>
+        {isEditMode && (
           <button
-            onClick={() => fetchLeads(page - 1)}
-            disabled={page === 1}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
+            type="button"
+            onClick={onCancelEdit}
+            className="w-full bg-gray-200 text-gray-800 px-4 py-2 font-semibold rounded-md hover:bg-gray-300"
           >
-            Previous
+            Cancel
           </button>
-          <span className="text-sm text-gray-700">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => fetchLeads(page + 1)}
-            disabled={page === totalPages}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
-          >
-            Next
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+    </form>
   );
 }

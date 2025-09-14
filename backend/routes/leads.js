@@ -4,7 +4,7 @@ const auth = require("../middleware/auth");
 
 const router = express.Router();
 
-// POST / (Create Lead) - Unchanged
+
 router.post("/", auth, async (req, res) => {
   try {
     const lead = new Lead({
@@ -19,38 +19,38 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// ✅ GET / (Get All Leads with Pagination and Filtering) - UPDATED
+
 router.get("/", auth, async (req, res) => {
   try {
-    // --- 1. PAGINATION SETUP ---
+
     const page = parseInt(req.query.page, 10) || 1;
     let limit = parseInt(req.query.limit, 10) || 20;
-    if (limit > 100) limit = 100; // Enforce max limit
+    if (limit > 100) limit = 100; 
 
     const skip = (page - 1) * limit;
 
-    // --- 2. FILTERING LOGIC ---
-    const filterQuery = { createdBy: req.user.id }; // Base query
     
-    // Whitelist of fields that can be filtered
+    const filterQuery = { createdBy: req.user.id }; 
+    
+    
     const filterableFields = {
-      // String fields
+      
       name: 'string', email: 'string', company: 'string', city: 'string',
-      // Enum fields
+      
       status: 'enum', source: 'enum',
-      // Number fields
+      
       score: 'number', lead_value: 'number',
-      // Date fields
+      
       createdAt: 'date', last_activity_at: 'date',
-      // Boolean field
+      
       is_qualified: 'boolean'
     };
 
     for (const field in req.query) {
       if (filterableFields[field]) {
-        const queryPart = req.query[field]; // e.g., { "gt": "50" } or "new"
+        const queryPart = req.query[field]; 
         
-        // Handle simple 'equals' for strings, enums
+        
         if (typeof queryPart === 'string') {
           filterQuery[field] = queryPart;
           continue;
@@ -60,19 +60,19 @@ router.get("/", auth, async (req, res) => {
         const fieldType = filterableFields[field];
 
         switch (operator) {
-          // String operators
+          
           case 'contains':
             if (fieldType === 'string') {
               filterQuery[field] = { $regex: value, $options: "i" };
             }
             break;
-          // Enum operators
+          
           case 'in':
             if (fieldType === 'enum') {
               filterQuery[field] = { $in: value.split(',') };
             }
             break;
-          // Number operators
+          
           case 'gt':
           case 'lt':
             if (fieldType === 'number') {
@@ -88,7 +88,7 @@ router.get("/", auth, async (req, res) => {
               };
             }
             break;
-          // Date operators
+          
           case 'on':
              if (fieldType === 'date') {
                 const dayStart = new Date(value);
@@ -104,7 +104,7 @@ router.get("/", auth, async (req, res) => {
           case 'after':
             if (fieldType === 'date') filterQuery[field] = { $gt: new Date(value) };
             break;
-          // Boolean operators (only 'equals' is relevant)
+          
           case 'equals':
              if (fieldType === 'boolean') {
                 filterQuery[field] = value === 'true';
@@ -118,20 +118,20 @@ router.get("/", auth, async (req, res) => {
       }
     }
 
-    // --- 3. DATABASE QUERY ---
+    
     const total = await Lead.countDocuments(filterQuery);
     const leads = await Lead.find(filterQuery)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    // --- 4. RESPONSE ---
+    
     res.json({
       data: leads,
       page: page,
       limit: limit,
       total: total,
-      totalPages: Math.ceil(total / limit) || 1, // Ensure totalPages is at least 1
+      totalPages: Math.ceil(total / limit) || 1, 
     });
 
   } catch (err) {
@@ -141,7 +141,7 @@ router.get("/", auth, async (req, res) => {
 });
 
 
-// GET /:id (Get Lead by ID) - Unchanged
+
 router.get("/:id", auth, async (req, res) => {
   try {
     const lead = await Lead.findOne({ _id: req.params.id, createdBy: req.user.id });
@@ -152,7 +152,7 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
-// PUT /:id (Update Lead) - Unchanged
+
 router.put("/:id", auth, async (req, res) => {
   try {
     const lead = await Lead.findOneAndUpdate(
@@ -167,7 +167,7 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-// DELETE /:id (Delete Lead) - Unchanged
+
 router.delete("/:id", auth, async (req, res) => {
   try {
     const lead = await Lead.findOneAndDelete({ _id: req.params.id, createdBy: req.user.id });
