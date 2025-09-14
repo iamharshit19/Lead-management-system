@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import LeadForm from "./LeadForm";
-import { Edit, Trash2, Search, XCircle } from 'lucide-react'; // Using lucide-react for icons
+import { Edit, Trash2, Search, XCircle } from 'lucide-react'; 
 
 export default function LeadsList() {
   const [leads, setLeads] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [editingLead, setEditingLead] = useState(null); // State to hold the lead being edited
+  const [editingLead, setEditingLead] = useState(null); 
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -18,7 +18,7 @@ export default function LeadsList() {
   const fetchLeads = async (pageNum = 1, currentFilters = filters) => {
     setLoading(true);
     try {
-      // Build query parameters string
+      
       const params = new URLSearchParams({
         page: pageNum,
         limit: 10,
@@ -42,14 +42,14 @@ export default function LeadsList() {
     fetchLeads(1);
   }, []);
 
-  // --- Filter Handlers ---
+  
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
   const handleApplyFilters = () => {
-    setPage(1); // Reset to first page when applying new filters
+    setPage(1); 
     fetchLeads(1, filters);
   };
 
@@ -60,13 +60,13 @@ export default function LeadsList() {
     fetchLeads(1, clearedFilters);
   };
 
-  // --- CRUD Handlers ---
+  
   const handleLeadAdded = (newLead) => {
-    fetchLeads(page, filters); // Refetch with current filters
+    fetchLeads(page, filters); 
   };
 
   const handleLeadUpdated = (updatedLead) => {
-    setEditingLead(null); // Exit edit mode
+    setEditingLead(null); 
     setLeads(leads.map(lead => lead._id === updatedLead._id ? updatedLead : lead));
   };
 
@@ -74,7 +74,7 @@ export default function LeadsList() {
     if (window.confirm("Are you sure you want to delete this lead?")) {
       try {
         await api.delete(`/leads/${leadId}`);
-        fetchLeads(page, filters); // Refetch with current filters
+        fetchLeads(page, filters); 
       } catch (error) {
         console.error("Failed to delete lead:", error);
         alert("Could not delete the lead.");
@@ -96,12 +96,12 @@ export default function LeadsList() {
       <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Leads</h2>
 
-        {/* --- FILTER UI --- */}
+
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div>
                     <label htmlFor="search" className="block text-sm font-medium text-gray-700">Search by Name</label>
-                    <input type="text" name="search" id="search" value={filters.search} onChange={handleFilterChange} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., John Doe"/>
+                    <input type="text" name="search" id="search" value={filters.search} onChange={handleFilterChange} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., Name"/>
                 </div>
                 <div>
                     <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
