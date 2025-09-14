@@ -52,14 +52,14 @@ export default function LeadForm({
 
     try {
       if (isEditMode) {
-        // --- UPDATE (PUT request) ---
+   
         const res = await api.put(`/leads/${leadToEdit._id}`, formData);
         if (onLeadUpdated) onLeadUpdated(res.data);
       } else {
-        // --- CREATE (POST request) ---
+
         const res = await api.post("/leads", formData);
         if (onLeadAdded) onLeadAdded(res.data);
-        setFormData(initialFormData); // Reset form after creation
+        setFormData(initialFormData); 
       }
     } catch (err) {
       setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'add'} lead.`);
@@ -77,7 +77,6 @@ export default function LeadForm({
         <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</p>
       )}
 
-      {/* Input fields remain largely the same, just controlled by the updated state logic */}
       <div>
         <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
         <input
@@ -134,7 +133,7 @@ export default function LeadForm({
           <option value="facebook_ads">Facebook Ads</option>
           <option value="events">Events</option>
           <option value="referral">Referral</option>
-          <option value="other">Other</option>
+          <option value="others">Other</option>
         </select>
       </div>
 
