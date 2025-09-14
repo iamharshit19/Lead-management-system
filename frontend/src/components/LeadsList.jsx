@@ -68,7 +68,7 @@ export default function LeadsList() {
           </table>
         </div>
 
-        {/* Pagination */}
+        
         <div className="flex items-center justify-between mt-6">
           <button
             onClick={() => fetchLeads(page - 1)}

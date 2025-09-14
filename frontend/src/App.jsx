@@ -8,7 +8,7 @@ import LeadsList from "./components/LeadsList";
 function App() {
   const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
-  const [loading, setLoading] = useState(true); // Added for initial check
+  const [loading, setLoading] = useState(true); 
 
   useEffect(() => {
     const checkUser = async () => {
@@ -16,7 +16,7 @@ function App() {
         const res = await api.get("/auth/me");
         setUser(res.data);
       } catch (err) {
-        // User is not logged in
+      
       } finally {
         setLoading(false);
       }
